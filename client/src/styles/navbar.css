@@ -77,11 +77,33 @@
   color: #374151;                 /* Neutral gray */
   text-decoration: none;
   font-weight: 500;
+  position: relative;             /* Needed for the active underline */
+  padding-bottom: 2px;
 }
 
 /* Hover effect for links */
 .nav-link:hover {
   color: #4f46e5;                 /* Primary accent color */
+}
+
+/* --------------------------------------------------
+   ACTIVE LINK (current page)
+   --------------------------------------------------
+   Applied automatically by NavLink when the route matches
+*/
+.nav-link.active {
+  color: #4f46e5;                 /* Same accent as hover/buttons */
+  font-weight: 600;
+}
+
+.nav-link.active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -6px;
+  height: 2px;
+  background: #4f46e5;
 }
 
 
@@ -138,6 +160,9 @@
 .btn-logout {
   background: #374151;            /* Slate gray */
   color: white;
+}
+.btn {
+  text-decoration: none;
 }
 
 .btn-logout:hover {

@@ -2,46 +2,16 @@
 import { useEffect, useState } from "react";
 
 // Axios instance configured with baseURL and JWT interceptor
-// This automatically attaches Authorization token to every request
 import api from "../api/axios";
 
 // CSS specific to Books page UI
 import "../styles/books.css";
 
-/*
-  ======================================================
-  BOOKS PAGE (Frontend – React)
-  ======================================================
-  Purpose:
-  - Display list of books from backend
-  - Allow user to create, edit, delete books
-  - Support pagination & search
-  - Communicate with JWT-protected APIs
-
-  Backend APIs used:
-  - GET    /books
-  - POST   /books
-  - PUT    /books/:id
-  - DELETE /books/:id
-*/
 const Books = () => {
 
-  /* --------------------------------------------------
-     STATE: BOOK DATA
-     --------------------------------------------------
-     books   → array of book objects fetched from backend
-     loading → used to show loading text while API runs
-  */
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  /* --------------------------------------------------
-     STATE: PAGINATION
-     --------------------------------------------------
-     page        → current page number
-     totalPages → total pages returned by backend
-     limit       → how many books per page
-  */
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const limit = 5;
@@ -49,16 +19,13 @@ const Books = () => {
   /* --------------------------------------------------
      STATE: SEARCH
      --------------------------------------------------
-     search → text entered by user for filtering books
+     search           → text shown in the input, updates instantly
+     debouncedSearch  → value actually sent to the API, updates
+                        only after the user stops typing for 400ms
   */
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  /* --------------------------------------------------
-     STATE: EDIT MODE
-     --------------------------------------------------
-     editingId → stores ID of book currently being edited
-     editData  → holds editable values of selected book
-  */
   const [editingId, setEditingId] = useState(null);
   const [editData, setEditData] = useState({
     title: "",
@@ -66,34 +33,20 @@ const Books = () => {
     year: ""
   });
 
-  /* --------------------------------------------------
-     STATE: CREATE FORM
-     --------------------------------------------------
-     formData → values entered in Add Book form
-  */
   const [formData, setFormData] = useState({
     title: "",
     author: "",
     year: ""
   });
 
-  /* ==================================================
-     FUNCTION: FETCH BOOKS
-     ==================================================
-     - Calls backend API with pagination & search params
-     - Updates books list and pagination state
-  */
   const fetchBooks = async (pageNumber = 1) => {
     try {
-      // Show loading text
       setLoading(true);
 
-      // API call with query parameters
       const res = await api.get(
-        `/books?page=${pageNumber}&limit=${limit}&search=${search}`
+        `/books?page=${pageNumber}&limit=${limit}&search=${debouncedSearch}`
       );
 
-      // Update UI with response data
       setBooks(res.data.data);
       setPage(res.data.page);
       setTotalPages(res.data.totalPages);
@@ -101,52 +54,51 @@ const Books = () => {
     } catch (err) {
       alert("Failed to load books");
     } finally {
-      // Hide loading text
       setLoading(false);
     }
   };
 
   /* --------------------------------------------------
-     useEffect
+     DEBOUNCE EFFECT
      --------------------------------------------------
-     Automatically runs fetchBooks when:
-     - page changes
-     - search text changes
+     Waits 400ms after the user stops typing before
+     updating debouncedSearch. Resets the timer on every
+     keystroke via the cleanup function.
+  */
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  /* --------------------------------------------------
+     FETCH EFFECT
+     --------------------------------------------------
+     Runs fetchBooks only when page or the debounced
+     search term changes — not on every keystroke.
   */
   useEffect(() => {
     fetchBooks(page);
-  }, [page, search]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, debouncedSearch]);
 
-  /* ==================================================
-     FUNCTION: CREATE BOOK
-     ==================================================
-     - Sends new book to backend
-     - Resets form
-     - Reloads first page (newest book visible)
-  */
   const handleCreate = async (e) => {
-    e.preventDefault(); // Prevent page refresh
+    e.preventDefault();
 
     await api.post("/books", {
       ...formData,
-      year: Number(formData.year) // Convert string → number
+      year: Number(formData.year)
     });
 
-    // Clear form inputs
     setFormData({ title: "", author: "", year: "" });
 
-    // Go back to first page after adding book
     setPage(1);
     fetchBooks(1);
   };
 
-  /* ==================================================
-     FUNCTION: DELETE BOOK
-     ==================================================
-     - Confirms action
-     - Calls DELETE API
-     - Reloads current page
-  */
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this book?")) return;
 
@@ -154,12 +106,6 @@ const Books = () => {
     fetchBooks(page);
   };
 
-  /* ==================================================
-     EDIT MODE FUNCTIONS
-     ==================================================
-  */
-
-  // Enable edit mode for selected book
   const startEdit = (book) => {
     setEditingId(book._id);
     setEditData({
@@ -169,13 +115,11 @@ const Books = () => {
     });
   };
 
-  // Cancel edit mode
   const cancelEdit = () => {
     setEditingId(null);
     setEditData({ title: "", author: "", year: "" });
   };
 
-  // Save edited book data
   const saveEdit = async (id) => {
     await api.put(`/books/${id}`, {
       ...editData,
@@ -186,16 +130,8 @@ const Books = () => {
     fetchBooks(page);
   };
 
-  /* --------------------------------------------------
-     LOADING UI
-     --------------------------------------------------
-  */
   if (loading) return <p>Loading...</p>;
 
-  /* ==================================================
-     JSX UI
-     ==================================================
-  */
   return (
     <div className="books-container">
       <h2>Books</h2>
@@ -207,18 +143,17 @@ const Books = () => {
           placeholder="Search by title or author..."
           value={search}
           onChange={(e) => {
-            setSearch(e.target.value); // Update search text
-            setPage(1);               // Reset to page 1
+            setSearch(e.target.value);
           }}
         />
 
-        {/* Clear search (❌) */}
         {search && (
           <button
             className="search-clear"
             type="button"
             onClick={() => {
               setSearch("");
+              setDebouncedSearch("");
               setPage(1);
             }}
           >
